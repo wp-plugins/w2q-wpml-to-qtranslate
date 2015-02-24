@@ -20,7 +20,7 @@ Goodbye WPML, Hello qTranslate!
 1. Upload the plugin in the `/wp-content/plugins/` directory, or automatically install it through the 'New Plugin' menu in WordPress
 2. Activate the plugin through the 'Plugins' menu in WordPress
 
-== WPML to qTranslate Migration ==
+= WPML to qTranslate Migration =
 
 1. Create a non-production environment to perform the migration. Make sure you have a backup if you want to migrate the production environment.
 2. Disable WPML
