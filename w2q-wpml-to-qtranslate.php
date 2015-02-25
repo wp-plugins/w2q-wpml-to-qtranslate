@@ -3,13 +3,16 @@
  * Plugin Name: W2Q: WPML to qTranslate
  * Plugin URI: http://wordpress.org/plugins/w2q-wpml-to-qtranslate
  * Description: Migrate WPML translations to qTranslate. Goodbye WPML, hello qTranslate.
- * Version: 0.9.1
+ * Version: 0.9.2
  * Author: Jos Koenis
  * License: GPL2
  */
  
  /*
  Change history:
+ 0.9.2: 
+	- Added some text and urls to the referred plugins to the admin interface
+	
  0.9.1: 
 	- First version
 	
@@ -41,6 +44,7 @@ class Wpml_to_qtranslate {
 		}
 		$this->init_objects();
 	
+		$q_options = $this->get_q_options();
 
 ?>
 <style>
@@ -54,7 +58,7 @@ class Wpml_to_qtranslate {
 	<p>The <a href="https://wordpress.org/plugins/duplicator/" target="_blank">Duplicator</a>-plugin is an excellent tool to create a copy of your wordpress environment.
 
 	<p>If you have the guts te perform the migration on a production environment, 
-	please make sure you <strong>make a full backup of your database before using WPML to qTranslate</strong>.
+	please make sure you <strong>make a full backup of your database before migrating</strong>.
 
 	<h3>Step 2: Disable WPML</h3>
 	<p>Disable the WPML plugins to prevent it to reassign translations of posts or taxonomies.
@@ -65,20 +69,30 @@ class Wpml_to_qtranslate {
 		echo "<div class='w2q-info'>WPML disabled: <strong>YES</strong></div>";
 	} ?>
 	
-
-
 	<h3>Step 3: Install and activate qTranslate X</h3>
-	<p>Install and activate qTranslate X, or any other qTranslate fork. Setup the languages and permalink settings.
-	<p>Test if your page still works (menus and contents in all languages will be visible, just ignore that)
-	<p>Also install qTranslate Slug if you want to migrate your slug translations as well. 
-	<div class='w2q-info'>qTranslate Slug detected: 
-	<strong><?php echo isset($this->qts) ? "YES" : "NO"; ?></strong>
-	</div>
+	<p>Install and activate <a href="https://wordpress.org/plugins/qtranslate-x/" target="_blank">qTranslate X</a> (or any other qTranslate fork) and 
+	<a href="https://wordpress.org/plugins/qtranslate-slug/" target="_blank">qTranslate Slug</a>. This is important if you want slug translations to be migrated.
+	This is also a good time to configure the languages and permalink settings of qTranslate X.
+	<p>Test if your page still works after installation (menus and contents in all languages will be visible, just ignore that)
+	
+    <div class='w2q-info'>Languages found in WPML: <strong><?php echo join(" ", $this->get_wpml_languages()) ?></strong></div>
+	
+	<div class='w2q-info'>Enabled languages in qTranslate: <strong>
+	<?php
+		if ( is_array($q_options['enabled_languages']) ) { 
+			echo join(" ", $q_options['enabled_languages'] );			
+		} else {
+			echo "<span class='w2q-error'>none</span>";
+		}		
+	?>
+	</strong></div>
+	
+	<div class='w2q-info'>qTranslate Slug detected: <strong><?php echo isset($this->qts) ? "YES" : "<span class='w2q-error'>NO</span>"; ?></strong></div>
 	
 	<h3>Step 4: Execute the migration process</h3>
 	<p><strong>Important:</strong> This plugin will migrate all WPML translations to qTranslate, therefore <strong>existing WPML functionality will break</strong>.
 	
-	<p>Press this button if you've completed both step 1 and 2. (Step 3 can also be done afterwards, if you'd like)
+	<p>Press this button if you've completed both step 1, 2 and 3
 	
 	<?php if (WP_DEBUG) {
 			echo "<div class='w2q-info w2q-warning'>Note: WP_DEBUG is enabled. If execution fails with a fatal error, please disable WP_DEBUG and try again.</strong></div><br>\n";
@@ -136,6 +150,28 @@ class Wpml_to_qtranslate {
 		return function_exists('icl_object_id');
 	}
 	
+	function get_q_options() {
+		$q_options = array();
+		$q_options['language_names'] = get_option('qtranslate_language_names');
+		$q_options['enabled_languages'] = get_option('qtranslate_enabled_languages');
+		$q_options['default_language'] = get_option('qtranslate_default_language');
+		return $q_options;
+	}
+
+    /**
+     * Get array with all language codes in icl_translations table
+     */
+    function get_wpml_languages() {
+        $query = "SELECT language_code FROM " . $this->prefix('icl_translations') . " GROUP BY language_code ORDER BY count(1) DESC";
+
+        $rows = $this->db->get_results( $query );
+        $retval = array();
+        foreach ($rows as $row) {
+            $retval[] = $row->language_code;
+        }
+        return $retval;
+    }
+
 	function init_objects() {
 		global $wpdb;
 		$this->db = $wpdb;
