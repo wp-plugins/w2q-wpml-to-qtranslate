@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=5T9XQ
 Tags: qtranslate, mqtranslate, wpml
 Requires at least: 4.0.0
 Tested up to: 4.1.1
-Stable tag: 0.9.1
+Stable tag: 0.9.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,8 +12,19 @@ W2Q: WPML to qTranslate
 
 == Description ==
 
-Migrate WPML translations to qTranslate. Compatible with 'qTranslate X' and 'qTranslate support for WooCommerce'-plugins.
+Migrates WPML translations to qTranslate. 
+
+Compatible with:
+[qTranslate X](https://wordpress.org/plugins/qtranslate-x/),
+[qTranslate Slug](https://wordpress.org/plugins/qtranslate-slug/),
+[WooCommerce & qTranslate-X](https://wordpress.org/plugins/woocommerce-qtranslate-x) (best used in combination with qTranslate X) and
+[qTranslate support for WooCommerce](https://wordpress.org/plugins/qtranslate-support-for-woocommerce/)
+
+Might be compatible with other qTranslate forks and helper-plugins as well, but not tested.
+
 Goodbye WPML, Hello qTranslate!
+
+Note: This plugin will save you a lot of work, but more configuration and tweaking might be necessary.
 
 == Installation ==
 
@@ -24,7 +35,7 @@ Goodbye WPML, Hello qTranslate!
 
 1. Create a non-production environment to perform the migration. Make sure you have a backup if you want to migrate the production environment.
 2. Disable WPML
-3. Install and configure qTranslate X (or another fork). Test if your environment is still ok.
+3. Install and configure qTranslate X (or any other fork). Test if your environment is still ok.
 4. Go to Settings - W2Q: WPML to qTranslate and press 'Execute'
 5. Wait...
 6. Test your environment. Some tweaks might be required.
@@ -52,11 +63,10 @@ No, slugs are not migrated by default. Some urls will break. If the 'qTranslate 
 
 Sure! [This](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=5T9XQBCS2QHRY&lc=NL&item_name=Jos%20Koenis&item_number=wordpress%2dplugin&currency_code=EUR&bn=PP%2dDonationsBF%3abtn_donateCC_LG%2egif%3aNonHosted) is the link. Greatly appreciated!
 
-== Screenshots ==
-
-1. First screenshot
-
 == Changelog ==
+
+= 0.9.2 =
+* Added some documentation and urls to the referred plugins in the admin interface
 
 = 0.9.1 =
 * First public version
