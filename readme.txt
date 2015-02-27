@@ -4,7 +4,7 @@ Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=5T9XQ
 Tags: qtranslate, mqtranslate, wpml
 Requires at least: 4.0.0
 Tested up to: 4.1.1
-Stable tag: 0.9.2
+Stable tag: 0.9.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,9 @@ No, slugs are not migrated by default. Some urls will break. If the 'qTranslate 
 Sure! [This](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=5T9XQBCS2QHRY&lc=NL&item_name=Jos%20Koenis&item_number=wordpress%2dplugin&currency_code=EUR&bn=PP%2dDonationsBF%3abtn_donateCC_LG%2egif%3aNonHosted) is the link. Greatly appreciated!
 
 == Changelog ==
+
+= 0.9.3 =
+* FIX: Save terms in wp_option 'qtranslate_term_name' instead of using language tags
 
 = 0.9.2 =
 * Added some documentation and urls to the referred plugins in the admin interface
