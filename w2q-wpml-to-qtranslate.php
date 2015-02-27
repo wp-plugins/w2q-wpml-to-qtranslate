@@ -3,7 +3,7 @@
  * Plugin Name: W2Q: WPML to qTranslate
  * Plugin URI: http://wordpress.org/plugins/w2q-wpml-to-qtranslate
  * Description: Migrate WPML translations to qTranslate. Goodbye WPML, hello qTranslate.
- * Version: 0.9.2
+ * Version: 0.9.3
  * Author: Jos Koenis
  * License: GPL2
  */
