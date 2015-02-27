@@ -3,13 +3,19 @@
  * Plugin Name: W2Q: WPML to qTranslate
  * Plugin URI: http://wordpress.org/plugins/w2q-wpml-to-qtranslate
  * Description: Migrate WPML translations to qTranslate. Goodbye WPML, hello qTranslate.
- * Version: 0.9.1
+ * Version: 0.9.2
  * Author: Jos Koenis
  * License: GPL2
  */
  
  /*
  Change history:
+ 0.9.3: 
+	- FIX: Save terms in wp_option 'qtranslate_term_name' instead of using language tags
+	
+ 0.9.2: 
+	- Added some text and urls to the referred plugins to the admin interface
+	
  0.9.1: 
 	- First version
 	
@@ -26,6 +32,8 @@ class Wpml_to_qtranslate {
 	
 	private $ajax_data = array();
 	
+	private $q_config = null;
+	
 	public function __construct() {    
 		add_action('admin_menu', array( &$this, 'action_admin_menu' ));		
 		add_action('wp_ajax_w2q_execute', array ( &$this, 'ajax_execute' ));
@@ -41,6 +49,7 @@ class Wpml_to_qtranslate {
 		}
 		$this->init_objects();
 	
+		$this->q_config = $this->get_q_config();
 
 ?>
 <style>
@@ -65,20 +74,30 @@ class Wpml_to_qtranslate {
 		echo "<div class='w2q-info'>WPML disabled: <strong>YES</strong></div>";
 	} ?>
 	
-
-
 	<h3>Step 3: Install and activate qTranslate X</h3>
-	<p>Install and activate qTranslate X, or any other qTranslate fork. Setup the languages and permalink settings.
-	<p>Test if your page still works (menus and contents in all languages will be visible, just ignore that)
-	<p>Also install qTranslate Slug if you want to migrate your slug translations as well. 
-	<div class='w2q-info'>qTranslate Slug detected: 
-	<strong><?php echo isset($this->qts) ? "YES" : "NO"; ?></strong>
-	</div>
+	<p>Install and activate <a href="https://wordpress.org/plugins/qtranslate-x/" target="_blank">qTranslate X</a> (or any other qTranslate fork) and 
+	<a href="https://wordpress.org/plugins/qtranslate-slug/" target="_blank">qTranslate Slug</a>. This is important if you want your slug translations to be migrated.
+	This is also a good time to configure the languages and permalink settings of qTranslate X.
+	<p>Test if your page still works after installation (menus and contents in all languages will be visible, just ignore that)
+	
+    <div class='w2q-info'>Languages found in WPML: <strong><?php echo join(" ", $this->get_wpml_languages()) ?></strong></div>
+	
+	<div class='w2q-info'>Enabled languages in qTranslate: <strong>
+	<?php
+		if ( is_array($this->q_config['enabled_languages']) ) { 
+			echo join(" ", $this->q_config['enabled_languages'] );			
+		} else {
+			echo "<span class='w2q-error'>none</span>";
+		}		
+	?>
+	</strong></div>
+	
+	<div class='w2q-info'>qTranslate Slug detected: <strong><?php echo isset($this->qts) ? "YES" : "<span class='w2q-error'>NO</span>"; ?></strong></div>
 	
 	<h3>Step 4: Execute the migration process</h3>
 	<p><strong>Important:</strong> This plugin will migrate all WPML translations to qTranslate, therefore <strong>existing WPML functionality will break</strong>.
 	
-	<p>Press this button if you've completed both step 1 and 2. (Step 3 can also be done afterwards, if you'd like)
+	<p>Press this button if you've completed step 1, 2 and 3
 	
 	<?php if (WP_DEBUG) {
 			echo "<div class='w2q-info w2q-warning'>Note: WP_DEBUG is enabled. If execution fails with a fatal error, please disable WP_DEBUG and try again.</strong></div><br>\n";
@@ -136,6 +155,33 @@ class Wpml_to_qtranslate {
 		return function_exists('icl_object_id');
 	}
 	
+	function get_q_config() {
+		$q_config = array();
+		$q_config['language_names'] = get_option('qtranslate_language_names');
+		$q_config['enabled_languages'] = get_option('qtranslate_enabled_languages');
+		$q_config['default_language'] = get_option('qtranslate_default_language');
+		$q_config['term_name'] = get_option('qtranslate_term_name');
+		return $q_config;
+	}
+	
+	function update_q_config( $q_config, $option_name ) {
+		update_option( 'qtranslate_' . $option_name, $q_config[ $option_name ] );
+	}
+
+    /**
+     * Get array with all language codes in icl_translations table
+     */
+    function get_wpml_languages() {
+        $query = "SELECT language_code FROM " . $this->prefix('icl_translations') . " GROUP BY language_code ORDER BY count(1) DESC";
+
+        $rows = $this->db->get_results( $query );
+        $retval = array();
+        foreach ($rows as $row) {
+            $retval[] = $row->language_code;
+        }
+        return $retval;
+    }
+
 	function init_objects() {
 		global $wpdb;
 		$this->db = $wpdb;
@@ -144,6 +190,8 @@ class Wpml_to_qtranslate {
 		global $qtranslate_slug;
 		if (isset($qtranslate_slug)) $this->qts = $qtranslate_slug;
 		
+		$this->q_config = $this->get_q_config();
+
 		//QTS Taxonomies
 		$this->qts_taxonomies = array();
 		$taxonomies = get_taxonomies( array( 'public' => true, 'show_ui' => true ), 'object' ); 
@@ -159,7 +207,6 @@ class Wpml_to_qtranslate {
 		if ( $this->is_wpml_enabled() ) {
 			die (json_encode(array('fatal'=> 'WPML is active!')));
 		}
-
 		
 		$this->init_objects();
 	
@@ -213,7 +260,7 @@ class Wpml_to_qtranslate {
 	function translate_row($r) {
 			$type = preg_split("/_/", $r->element_type, 2)[0];
 
-			$translations = $this->get_translations( $r->trid );
+			$translation_map = $this->get_translation_map( $r->trid );
 			
 			switch ($type) {
 				case "comment":
@@ -236,8 +283,9 @@ class Wpml_to_qtranslate {
 	}
 
 	///Get element_ids for all translations
+	///The first item is the source item
 	/// array ( 'lang' : id, ... )
-	function get_translations($trid, $exclude_source = false) {
+	function get_translation_map($trid, $exclude_source = false) {
 		$query = "SELECT language_code, element_id, element_type from " . $this->prefix('icl_translations') . " WHERE trid=%d";
 		if ($exclude_source) $query .= " AND source_language_code IS NOT NULL";
 		$query .= " ORDER BY source_language_code IS NOT NULL";
@@ -256,7 +304,7 @@ class Wpml_to_qtranslate {
 	
 	///Get element_ids for all children
 	/// array ( 'lang' : id, ... )
-	function get_child_translations($trid, $parent_table, $parent_id_field, $parent_foreign_id_field, $exclude_source = false) {
+	function get_child_translation_map($trid, $parent_table, $parent_id_field, $parent_foreign_id_field, $exclude_source = false) {
 	
 		$query = "SELECT language_code, element_id, element_type from " . $this->prefix('icl_translations') . " WHERE trid=%d";
 		if ($exclude_source) $query .= " AND source_language_code IS NOT NULL";
@@ -285,27 +333,22 @@ class Wpml_to_qtranslate {
 		return $this->db->get_row(  $query  );	
 	}
 	
-	//$columns can be a single column-name or an array.
-	function translate_element($element_id, $translations, $table, $id_col, $columns) {
-		if (count($translations) < 1) {
-			// echo "nothing to do.<br>";
-			return;
-		}
-			
+	//Get a jagged array with translations, like:
+	// [ 
+	// 'post_content' => [ 'es' => 'hola', 'en' => 'hi' ],
+	// 'post_something' => [ 'es' => 'hola', 'en' => 'hi' ],
+	// ]
+	function get_translations($translation_map, $table, $id_col, $columns) {
+		
+		//Make sure it's an array
 		if (! is_array( $columns ) )
 			$columns = array($columns);
-
-		//translated will be a jagged array, like:
-		// [ 
-		// 'post_content' => [ 'es' => 'hola', 'en' => 'hi' ],
-		// 'post_something' => [ 'es' => 'hola', 'en' => 'hi' ],
-		// ]
-		$translated = array();
+		
+		$translations = array();
 		foreach ( $columns as $col )
-			$translated[$col] = "";
+			$translations[$col] = array();		
 		
-		
-		foreach($translations as $lang => $id) {
+		foreach($translation_map as $lang => $id) {
 			$query = "SELECT * FROM `$table` WHERE `$id_col` = %d";
 			$row = $this->db->get_row(  $this->db->prepare( $query, $id )  );
 
@@ -317,33 +360,67 @@ class Wpml_to_qtranslate {
 				if  ($text !== null && $text !== "") {
 					$tr = W2q::qtranxf_split($text, true, $lang);  // just in case it's already translated, parse as qTranslate
 					foreach ($tr as $lng => $txt) {
-						$translated[$col][$lng] = $txt;
+						$translations[$col][$lng] = $txt;
 					}
 				}
 			}
 		}
+		return $translations;
+	}
+	
+	//$columns can be a single column-name or an array.
+	function translate_element($element_id, $translation_map, $table, $id_col, $columns) {
+		if (count($translation_map) < 1) {
+			// echo "nothing to do.<br>";
+			return;
+		}
+			
+		$translated = $this->get_translations($translation_map, $table, $id_col, $columns);
 		
 		//arrays met vertalingen omzetten naar 1 qTranslate format string
 		foreach($translated as $col => $v) {
 			$translated[$col] = W2q::qtranxf_join( $v );
 		}
-		$idx = 0;
-		$sets = array();
-		$parameters = array();
 		
 		$this->db->update($table, $translated, array($id_col => $element_id));
 		
 		//Delete translated posts (WPML-style)
-		foreach($translations as $k => $v) {
+		foreach($translation_map as $k => $v) {
 			if ($v != $element_id) {
 				$this->count('records_flushed', $this->db->delete( $table, array( $id_col => $v ), array( '%d' ) ));
 			}
 		}	
 	}
 	
+	//$columns can be a single column-name or an array.
+	function translate_term($element_id, $translation_map ) {
+		if (count($translation_map) < 1) {
+			return;
+		}
+			
+		//translated will be a jagged array, like:
+		// [ 
+		// 'post_content' => [ 'es' => 'hola', 'en' => 'hi' ],
+		// 'post_something' => [ 'es' => 'hola', 'en' => 'hi' ],
+		// ]
+		$translations = $this->get_translations($translation_map, $this->db->terms, 'term_id', 'name' );
+
+		$first_item = reset( $translations['name'] );
+		$this->q_config['term_name'][$first_item] = $translations['name'];
+		
+		$this->update_q_config( $this->q_config, 'term_name' );
+
+		//Delete translated posts (WPML-style)
+		foreach($translation_map as $k => $v) {
+			if ($v != $element_id) {
+				$this->count('records_flushed', $this->db->delete( $this->db->terms, array( 'term_id' => $v ), array( '%d' ) ));
+			}
+		}	
+	}
+	
 	//Insert _qts_slug_xx meta values for posts (for qTranslate slug plugin)
-	function translate_post_slugs_for_qts($post_id, $translations) {	
-		foreach($translations as $lang => $id) {
+	function translate_post_slugs_for_qts($post_id, $translation_map) {	
+		foreach($translation_map as $lang => $id) {
 			$query = "SELECT `post_name` FROM `" . $this->db->posts . "` WHERE `id` = %d";
 			$slug = $this->db->get_var(  $this->db->prepare( $query, $id )  );
 			if ( isset($slug) ) {
@@ -353,8 +430,8 @@ class Wpml_to_qtranslate {
 	}
 	
 	//Insert _qts_slug_xx meta values for terms (for qTranslate slug plugin)
-	function translate_term_slugs_for_qts($term_id, $translations) {	
-		foreach($translations as $lang => $id) {
+	function translate_term_slugs_for_qts($term_id, $translation_map) {	
+		foreach($translation_map as $lang => $id) {
 			$query = "SELECT `slug` FROM `" . $this->db->terms . "` WHERE `term_id` = %d";
 			$slug = $this->db->get_var(  $this->db->prepare( $query, $id )  );
 			if ( isset($slug) ) {
@@ -364,14 +441,14 @@ class Wpml_to_qtranslate {
 	}
 	
 	function tr_post($source_element_id, $trid) {
-		$translations = $this->get_translations($trid);
+		$translation_map = $this->get_translation_map($trid);
 		
 		//Slugs for qts
 		if (isset($this->qts))
-			$this->translate_post_slugs_for_qts($source_element_id, $translations);
+			$this->translate_post_slugs_for_qts($source_element_id, $translation_map);
 		
-		$this->translate_element($source_element_id, $translations, $this->db->posts, 'id', array('post_content', 'post_title', 'post_excerpt') );		
-		foreach ($translations as $lang => $post_id) {
+		$this->translate_element($source_element_id, $translation_map, $this->db->posts, 'id', array('post_content', 'post_title', 'post_excerpt') );		
+		foreach ($translation_map as $lang => $post_id) {
 			if ($post_id != $source_element_id) {
 				//Assign comments of the translated posts to the source post
 				$this->count('comments_migrated', $this->db->update( $this->db->comments, array( 'comment_post_id' => $source_element_id ), array ( 'comment_post_id' => $post_id ) ));
@@ -385,17 +462,17 @@ class Wpml_to_qtranslate {
 	
 	function tr_taxonomy($source_element_id, $trid, $element_type) {
 		//Translate terms (children first, because otherwise translations will be lost due to DELETE query)
-		$term_translations = $this->get_child_translations($trid, $this->db->term_taxonomy, 'term_taxonomy_id', 'term_id');		
+		$term_translations = $this->get_child_translation_map($trid, $this->db->term_taxonomy, 'term_taxonomy_id', 'term_id');		
 		
 		//Slugs for qts
 		if (isset($this->qts))
 			$this->translate_term_slugs_for_qts($source_element_id, $term_translations);
 			
-		$this->translate_element(reset($term_translations), $term_translations, $this->db->terms, 'term_id', array('name') );			
+		$this->translate_term(reset($term_translations), $term_translations );
 	
 		//Translate taxonomy
-		$translations = $this->get_translations($trid);
-		$this->translate_element($source_element_id, $translations, $this->db->term_taxonomy, 'term_taxonomy_id', array('description') );
+		$translation_map = $this->get_translation_map($trid);
+		$this->translate_element($source_element_id, $translation_map, $this->db->term_taxonomy, 'term_taxonomy_id', array('description') );
 		$this->delete_translations($trid);		
 	}
 	
